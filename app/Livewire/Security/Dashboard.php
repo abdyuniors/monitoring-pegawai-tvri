@@ -2,13 +2,13 @@
 
 namespace App\Livewire\Security;
 
-use App\Models\ExitRecord;
 use App\Models\Employee;
+use App\Models\ExitRecord;
 use App\Services\EmployeeExitService;
+use App\Services\WorkScheduleService;
+use DomainException;
 use Illuminate\Support\Collection;
 use Livewire\Component;
-use DomainException;
-use App\Services\WorkScheduleService;
 
 class Dashboard extends Component
 {
@@ -29,29 +29,39 @@ class Dashboard extends Component
             'activeExits' => $this->activeExits(),
             'todayTotal' => $this->todayTotal(),
             'todayReturned' => $this->todayReturned(),
+            'todayOut' => $this->todayOut(),
             'workStatus' => $workScheduleService->status(),
             'selectedEmployee' => $this->selectedEmployee(),
-        ]);
+        ])->layout('layouts.security');
     }
 
+    /**
+     * Mencari pegawai aktif berdasarkan nama atau NIP.
+     */
     protected function searchEmployees(): Collection
     {
-        if (strlen(trim($this->search)) < 2) {
+        $search = trim($this->search);
+
+        if (strlen($search) < 2) {
             return collect();
         }
 
         return Employee::query()
+            ->with('department')
             ->where('is_active', true)
-            ->where(function ($query) {
+            ->where(function ($query) use ($search) {
                 $query
-                    ->where('name', 'like', '%' . trim($this->search) . '%')
-                    ->orWhere('nip', 'like', '%' . trim($this->search) . '%');
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%");
             })
             ->orderBy('name')
             ->limit(8)
             ->get();
     }
 
+    /**
+     * Semua pegawai yang masih berada di luar.
+     */
     protected function activeExits(): Collection
     {
         return ExitRecord::query()
@@ -61,6 +71,9 @@ class Dashboard extends Component
             ->get();
     }
 
+    /**
+     * Total pencatatan keluar hari ini.
+     */
     protected function todayTotal(): int
     {
         return ExitRecord::query()
@@ -68,6 +81,9 @@ class Dashboard extends Component
             ->count();
     }
 
+    /**
+     * Total yang sudah kembali hari ini.
+     */
     protected function todayReturned(): int
     {
         return ExitRecord::query()
@@ -76,13 +92,60 @@ class Dashboard extends Component
             ->count();
     }
 
+    /**
+     * Total transaksi hari ini yang masih berstatus keluar.
+     */
+    protected function todayOut(): int
+    {
+        return ExitRecord::query()
+            ->whereDate('exit_at', today())
+            ->where('status', 'out')
+            ->count();
+    }
+
+    /**
+     * Pilih pegawai untuk dicatat keluar.
+     */
     public function selectEmployee(int $employeeId): void
     {
-        $this->selectedEmployeeId = $employeeId;
+        $employee = Employee::query()
+            ->with('department')
+            ->whereKey($employeeId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $employee) {
+            $this->addError(
+                'search',
+                'Pegawai tidak ditemukan atau sudah tidak aktif.'
+            );
+
+            return;
+        }
+
+        $alreadyOut = ExitRecord::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'out')
+            ->exists();
+
+        if ($alreadyOut) {
+            $this->addError(
+                'search',
+                "{$employee->name} masih tercatat berada di luar kantor."
+            );
+
+            return;
+        }
+
+        $this->selectedEmployeeId = $employee->id;
         $this->search = '';
+        $this->resetValidation();
         $this->showExitModal = true;
     }
 
+    /**
+     * Tutup modal dan bersihkan form.
+     */
     public function closeExitModal(): void
     {
         $this->reset([
@@ -91,17 +154,35 @@ class Dashboard extends Component
             'purpose',
             'destination',
         ]);
+
+        $this->resetValidation();
     }
 
+    /**
+     * Catat pegawai keluar.
+     */
     public function recordExit(EmployeeExitService $service): void
     {
         $this->validate([
-            'selectedEmployeeId' => ['required', 'integer', 'exists:employees,id'],
-            'purpose' => ['required', 'string', 'max:255'],
-            'destination' => ['required', 'string', 'max:255'],
+            'selectedEmployeeId' => [
+                'required',
+                'integer',
+                'exists:employees,id',
+            ],
+            'purpose' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'destination' => [
+                'required',
+                'string',
+                'max:255',
+            ],
         ]);
 
-        $employee = Employee::findOrFail($this->selectedEmployeeId);
+        $employee = Employee::query()
+            ->findOrFail($this->selectedEmployeeId);
 
         try {
             $service->recordExit(
@@ -118,10 +199,16 @@ class Dashboard extends Component
                 "{$employee->name} berhasil dicatat keluar."
             );
         } catch (DomainException $exception) {
-            $this->addError('exit', $exception->getMessage());
+            $this->addError(
+                'exit',
+                $exception->getMessage()
+            );
         }
     }
 
+    /**
+     * Catat pegawai kembali.
+     */
     public function recordReturn(
         int $exitRecordId,
         EmployeeExitService $service,
@@ -149,14 +236,23 @@ class Dashboard extends Component
                 operator: auth()->user(),
             );
 
+            $this->resetValidation('return');
+
             session()->flash(
                 'success',
                 "{$employeeName} berhasil dicatat kembali."
             );
         } catch (DomainException $exception) {
-            $this->addError('return', $exception->getMessage());
+            $this->addError(
+                'return',
+                $exception->getMessage()
+            );
         }
     }
+
+    /**
+     * Pegawai yang sedang dipilih.
+     */
     protected function selectedEmployee(): ?Employee
     {
         if (! $this->selectedEmployeeId) {
