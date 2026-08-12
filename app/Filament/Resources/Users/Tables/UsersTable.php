@@ -22,9 +22,10 @@ class UsersTable
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('email')
-                    ->label('Email')
-                    ->searchable(),
+                TextColumn::make('username')
+                    ->label('Username')
+                    ->searchable()
+                    ->sortable(),
 
                 BadgeColumn::make('role')
                     ->label('Role')
@@ -32,7 +33,9 @@ class UsersTable
                         fn (UserRole|string|null $state): string =>
                             $state instanceof UserRole
                                 ? $state->label()
-                                : ($state ? ucfirst($state) : '-')
+                                : ($state
+                                    ? ucfirst($state)
+                                    : '-')
                     ),
 
                 BadgeColumn::make('is_active')
@@ -56,9 +59,11 @@ class UsersTable
                     ->label('Role')
                     ->options(
                         collect(UserRole::cases())
-                            ->mapWithKeys(fn (UserRole $role): array => [
-                                $role->value => $role->label(),
-                            ])
+                            ->mapWithKeys(
+                                fn (UserRole $role): array => [
+                                    $role->value => $role->label(),
+                                ]
+                            )
                             ->all()
                     ),
 

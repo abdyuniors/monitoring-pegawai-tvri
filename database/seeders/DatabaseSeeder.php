@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\UserRole;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,11 +16,28 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        User::factory()->create([
+            'name' => 'Administrator',
+            'username' => 'admin',
+            'password' => 'password',
+            'role' => UserRole::ADMIN,
+            'is_active' => true,
+        ]);
 
         User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'name' => 'Petugas Security',
+            'username' => 'security',
+            'password' => 'password',
+            'role' => UserRole::SECURITY,
+            'is_active' => true,
+        ]);
+
+        User::factory()->create([
+            'name' => 'Pimpinan',
+            'username' => 'pimpinan',
+            'password' => 'password',
+            'role' => UserRole::PIMPINAN,
+            'is_active' => true,
         ]);
 
         $this->call([

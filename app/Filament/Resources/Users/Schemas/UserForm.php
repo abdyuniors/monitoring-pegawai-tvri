@@ -19,28 +19,37 @@ class UserForm
                     ->required()
                     ->maxLength(255),
 
-                TextInput::make('email')
-                    ->label('Email')
-                    ->email()
+                TextInput::make('username')
+                    ->label('Username')
                     ->required()
+                    ->maxLength(255)
+                    ->alphaDash()
                     ->unique(ignoreRecord: true)
-                    ->maxLength(255),
+                    ->autocomplete('username'),
 
                 TextInput::make('password')
                     ->label('Password')
                     ->password()
                     ->revealable()
-                    ->required(fn (string $operation): bool => $operation === 'create')
+                    ->required(
+                        fn (string $operation): bool =>
+                            $operation === 'create'
+                    )
                     ->minLength(8)
-                    ->dehydrated(fn (?string $state): bool => filled($state)),
+                    ->dehydrated(
+                        fn (?string $state): bool =>
+                            filled($state)
+                    ),
 
                 Select::make('role')
                     ->label('Role')
                     ->options(
                         collect(UserRole::cases())
-                            ->mapWithKeys(fn (UserRole $role): array => [
-                                $role->value => $role->label(),
-                            ])
+                            ->mapWithKeys(
+                                fn (UserRole $role): array => [
+                                    $role->value => $role->label(),
+                                ]
+                            )
                             ->all()
                     )
                     ->required()

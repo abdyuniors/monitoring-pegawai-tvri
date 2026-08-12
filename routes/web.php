@@ -1,6 +1,6 @@
 <?php
 
-use App\Livewire\Security\Dashboard;
+use App\Livewire\Security\Dashboard as SecurityDashboard;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -11,45 +11,49 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
-
 /*
 |--------------------------------------------------------------------------
 | Authenticated Routes
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware('auth')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | User Dashboard
+    | Login Redirect
     |--------------------------------------------------------------------------
     |
-    | Halaman umum untuk user yang sudah login.
+    | Mengarahkan user setelah login sesuai role.
     |
     */
-    Route::view('/dashboard', 'dashboard')
-        ->name('dashboard');
+    Route::get('/dashboard', function () {
+        $user = auth()->user();
 
+        return match ($user->role->value) {
+            'admin',
+            'pimpinan' => redirect('/admin'),
+
+            'security' => redirect('/security'),
+
+            default => abort(403),
+        };
+    })->name('dashboard');
 
     /*
     |--------------------------------------------------------------------------
     | Security Dashboard
     |--------------------------------------------------------------------------
-    |
-    | Khusus user yang memiliki akses security.
-    |
     */
-    Route::get('/security', Dashboard::class)
+
+    Route::get('/security', SecurityDashboard::class)
         ->middleware('security')
         ->name('security.dashboard');
-
 });
-
 
 /*
 |--------------------------------------------------------------------------
-| Additional Routes
+| Settings
 |--------------------------------------------------------------------------
 */
 
