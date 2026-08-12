@@ -6,13 +6,18 @@ use App\ExitStatus;
 use App\Models\Employee;
 use App\Models\ExitRecord;
 use App\Models\User;
-use App\Models\WorkSchedule;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeExitService
 {
+    public function __construct(
+        private readonly WorkScheduleService $workScheduleService,
+    ) {
+    }
+
     /**
      * Mencatat pegawai keluar.
      */
@@ -21,7 +26,7 @@ class EmployeeExitService
         string $purpose,
         string $destination,
         User $operator,
-        ?Carbon $now = null,
+        ?CarbonInterface $now = null,
     ): ExitRecord {
         $now ??= now();
 
@@ -61,7 +66,7 @@ class EmployeeExitService
     public function recordReturn(
         ExitRecord $record,
         User $operator,
-        ?Carbon $now = null,
+        ?CarbonInterface $now = null,
     ): ExitRecord {
         $now ??= now();
 
@@ -87,11 +92,11 @@ class EmployeeExitService
     }
 
     /**
-     * Memastikan pegawai boleh dicatat keluar pada waktu tertentu.
+     * Memastikan pegawai boleh dicatat keluar.
      */
     private function ensureEmployeeCanExit(
         Employee $employee,
-        Carbon $now,
+        CarbonInterface $now,
     ): void {
         if (! $employee->is_active) {
             throw new DomainException(
@@ -99,34 +104,29 @@ class EmployeeExitService
             );
         }
 
-        $schedule = WorkSchedule::query()
-            ->where('day_of_week', $now->dayOfWeekIso)
-            ->where('is_active', true)
-            ->first();
-
-        if (! $schedule) {
+        if (! $this->workScheduleService->isWorkingDay($now)) {
             throw new DomainException(
                 'Hari ini bukan hari kerja.'
             );
         }
 
-        $currentTime = $now->format('H:i:s');
+        if ($this->workScheduleService->isBreak($now)) {
+            $schedule = $this->workScheduleService->getSchedule($now);
 
-        if (
-            $currentTime < $schedule->work_start ||
-            $currentTime >= $schedule->work_end
-        ) {
             throw new DomainException(
-                'Saat ini di luar jam kerja.'
+                'Saat ini merupakan jam istirahat. '
+                . 'Jam kerja berikutnya dimulai pukul '
+                . Carbon::parse($schedule->break_end)->format('H:i')
+                . ' WITA.'
             );
         }
 
         if (
-            $currentTime >= $schedule->break_start &&
-            $currentTime < $schedule->break_end
+            $this->workScheduleService->isBeforeWork($now)
+            || $this->workScheduleService->isAfterWork($now)
         ) {
             throw new DomainException(
-                'Saat ini merupakan jam istirahat.'
+                'Saat ini di luar jam kerja.'
             );
         }
     }
