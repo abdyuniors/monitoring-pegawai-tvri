@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\ExitStatus;
+use App\UserRole;
 use App\Models\Employee;
 use App\Models\ExitRecord;
 use App\Models\WorkSchedule;
@@ -18,6 +19,18 @@ class Dashboard extends BaseDashboard
     protected static ?string $slug = '';
 
     protected string $view = 'filament.pages.dashboard';
+
+    public static function canAccess(): bool
+    {
+        return in_array(
+            auth()->user()?->role,
+            [
+                UserRole::ADMIN,
+                UserRole::PIMPINAN,
+            ],
+            true
+        );
+    }
 
     public function getTodayTotalProperty(): int
     {

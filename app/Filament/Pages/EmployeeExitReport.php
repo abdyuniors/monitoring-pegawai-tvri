@@ -3,9 +3,12 @@
 namespace App\Filament\Pages;
 
 use App\ExitStatus;
+use App\UserRole;
 use App\Models\Department;
 use App\Models\ExitRecord;
 use BackedEnum;
+use UnitEnum;
+use Filament\Support\Icons\Heroicon;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,19 +18,35 @@ class EmployeeExitReport extends Page
     protected string $view = 'filament.pages.employee-exit-report';
 
     protected static string|BackedEnum|null $navigationIcon =
-        \Filament\Support\Icons\Heroicon::OutlinedDocumentChartBar;
+        Heroicon::OutlinedDocumentChartBar;
 
-    protected static ?string $navigationLabel = 'Laporan Pegawai Keluar';
+    protected static string|UnitEnum|null $navigationGroup = 'Monitoring';
 
-    protected static ?string $title = 'Laporan Pegawai Keluar';
+    protected static ?int $navigationSort = 2;
 
-    protected static ?string $slug = 'laporan-pegawai-keluar';
+    protected static ?string $navigationLabel = 'Laporan';
+
+    protected static ?string $title = 'Laporan Aktivitas Pegawai';
+
+    protected static ?string $slug = 'laporan-aktivitas-pegawai';
 
     public string $startDate = '';
 
     public string $endDate = '';
 
     public string $departmentId = '';
+
+    public static function canAccess(): bool
+    {
+        return in_array(
+            auth()->user()?->role,
+            [
+                UserRole::ADMIN,
+                UserRole::PIMPINAN,
+            ],
+            true
+        );
+    }
 
     public function mount(): void
     {

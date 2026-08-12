@@ -8,7 +8,9 @@ use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
+use App\UserRole;
 use BackedEnum;
+use UnitEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -20,6 +22,31 @@ class UserResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+    protected static string|UnitEnum|null $navigationGroup = 'Sistem';
+
+    protected static ?int $navigationSort = 1;
+
+    protected static ?string $navigationLabel = 'Pengguna';
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->role === UserRole::ADMIN;
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->role === UserRole::ADMIN;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()?->role === UserRole::ADMIN;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);
